@@ -104,7 +104,11 @@ class RedisSessionStore < ActionDispatch::Session::AbstractStore
   def get_session(env, sid)
     sid && (session = load_session_from_redis(sid)) ? [sid, session] : session_default_values
   rescue Errno::ECONNREFUSED, Redis::CannotConnectError => e
+    puts "REDIS CONNECTION ERROR: #{e.inspect}\n#{e.backtrace.first(10).join('\n')}"
     on_redis_down.call(e, env, sid) if on_redis_down
+    session_default_values
+  rescue => e
+    puts "REDIS ANOTHER ERROR: #{e.inspect}\n#{e.backtrace.first(10).join('\n')}"
     session_default_values
   end
   alias find_session get_session
@@ -114,6 +118,7 @@ class RedisSessionStore < ActionDispatch::Session::AbstractStore
     begin
       data ? decode(data) : nil
     rescue StandardError => e
+      puts "REDIS LOAD ERROR: #{e.inspect}\n#{e.backtrace.first(10).join('\n')}"
       destroy_session_from_sid(sid, drop: true)
       on_session_load_error.call(e, sid) if on_session_load_error
       nil
@@ -134,7 +139,11 @@ class RedisSessionStore < ActionDispatch::Session::AbstractStore
     end
     sid
   rescue Errno::ECONNREFUSED, Redis::CannotConnectError => e
+    puts "REDIS (SET) CONNECTION ERROR: #{e.inspect}\n#{e.backtrace.first(10).join('\n')}"
     on_redis_down.call(e, env, sid) if on_redis_down
+    false
+  rescue => e
+    puts "REDIS (SET) ANOTHER ERROR: #{e.inspect}\n#{e.backtrace.first(10).join('\n')}"
     false
   end
   alias write_session set_session
